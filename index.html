@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Rani Invoice System</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .form-group {
+      margin: 10px 0;
+    }
+
+    label, select, input, button {
+      margin: 5px;
+    }
+
+    #invoice {
+      margin: 30px auto;
+      border: 2px solid #444;
+      padding: 20px;
+      background-color: #f0f8ff;
+      width: 90%;
+      max-width: 800px;
+      font-size: 1em;
+      text-align: left;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border: 1px solid #444;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #dce9ff;
+    }
+
+    #customer-info {
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+
+    #total {
+      margin-top: 10px;
+      font-size: 1.1em;
+      font-weight: bold;
+    }
+
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #invoice, #invoice * {
+        visibility: visible;
+      }
+      #invoice {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: white;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+    }
+
+    .header-center {
+      text-align: center;
+      font-weight: bold;
+      font-size: 1.1em;
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧾 Rani Billing System</h1>
+
+  <div class="form-group">
+    <label>Upload Customers JSON:</label>
+    <input type="file" id="customer-file" accept=".json" />
+  </div>
+
+  <div class="form-group">
+    <label>Upload Products JSON:</label>
+    <input type="file" id="product-file" accept=".json" />
+  </div>
+
+  <div class="form-group">
+    <label>Select Customer:</label>
+    <select id="customer-select"></select>
+  </div>
+
+  <div class="form-group">
+    <label>Select Product:</label>
+    <select id="product-select"></select>
+  </div>
+
+  <div class="form-group">
+    <label>Quantity:</label>
+    <input type="number" id="quantity" value="1" />
+  </div>
+
+  <div class="form-group">
+    <button onclick="addToInvoice()">Add to Invoice</button>
+    <button onclick="window.print()">🖨️ Print Invoice</button>
+    <button onclick="showDailySales()">📊 Daily Sales Report</button>
+    <button onclick="showCustomerSales()">👥 Customer Sales Report</button>
+  </div>
+
+  <div id="invoice">
+    <div class="header-center">RaniSesh Free Billing System</div>
+    <div class="header-center">Hyderabad 500035 | Contact: seshqtx@gmail.com | Phone: 987654321</div>
+    <div id="customer-info">No customer selected yet.</div>
+    <table id="invoice-table">
+      <thead>
+        <tr><th>Product</th><th>Quantity</th><th>Unit Price</th><th>Amount</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div id="total">💰 Total: ₹0.00</div>
+  </div>
+
+  <script>
+    let customers = {};
+    let products = {};
+    let totalAmount = 0;
+    let customerSet = false;
+    let dailySales = [];
+    let customerSales = {};
+
+    document.getElementById("customer-file").addEventListener("change", function (e) {
+      const reader = new FileReader();
+      reader.onload = function () {
+        const data = JSON.parse(reader.result);
+        const customerSelect = document.getElementById("customer-select");
+        customerSelect.innerHTML = "";
+        customers = {};
+        data.forEach(item => {
+          customers[item.name] = item.email;
+          const opt = document.createElement("option");
+          opt.value = item.name;
+          opt.textContent = item.name;
+          customerSelect.appendChild(opt);
+        });
+      };
+      reader.readAsText(e.target.files[0]);
+    });
+
+    document.getElementById("product-file").addEventListener("change", function (e) {
+      const reader = new FileReader();
+      reader.onload = function () {
+        const data = JSON.parse(reader.result);
+        const productSelect = document.getElementById("product-select");
+        productSelect.innerHTML = "";
+        products = {};
+        data.forEach(item => {
+          products[item.name] = parseFloat(item.price);
+          const opt = document.createElement("option");
+          opt.value = item.name;
+          opt.textContent = item.name;
+          productSelect.appendChild(opt);
+        });
+      };
+      reader.readAsText(e.target.files[0]);
+    });
+
+    function addToInvoice() {
+      const customerName = document.getElementById("customer-select").value;
+      const email = customers[customerName];
+      const product = document.getElementById("product-select").value;
+      const price = products[product];
+      const qty = parseInt(document.getElementById("quantity").value);
+      const amount = price * qty;
+
+      if (!customerSet) {
+        document.getElementById("customer-info").textContent = `Customer: ${customerName} (${email})`;
+        customerSet = true;
+      }
+
+      const tbody = document.querySelector("#invoice-table tbody");
+      const row = document.createElement("tr");
+      row.innerHTML = `<td>${product}</td><td>${qty}</td><td>₹${price.toFixed(2)}</td><td>₹${amount.toFixed(2)}</td>`;
+      tbody.appendChild(row);
+
+      totalAmount += amount;
+      document.getElementById("total").textContent = `💰 Total: ₹${totalAmount.toFixed(2)}`;
+
+      // Track sales
+      dailySales.push({ customer: customerName, product, qty, price, amount });
+
+      if (!customerSales[customerName]) customerSales[customerName] = 0;
+      customerSales[customerName] += amount;
+    }
+
+    function showDailySales() {
+      let report = "📊 Daily Sales Report:\n\n";
+      let total = 0;
+      dailySales.forEach(sale => {
+        report += `${sale.customer} - ${sale.product} x ${sale.qty} = ₹${sale.amount.toFixed(2)}\n`;
+        total += sale.amount;
+      });
+      report += `\nTotal Sales: ₹${total.toFixed(2)}`;
+      alert(report);
+    }
+
+    function showCustomerSales() {
+      let report = "👥 Customer Sales Report:\n\n";
+      for (let customer in customerSales) {
+        report += `${customer}: ₹${customerSales[customer].toFixed(2)}\n`;
+      }
+      alert(report);
+    }
+  </script>
+</body>
+</html>
